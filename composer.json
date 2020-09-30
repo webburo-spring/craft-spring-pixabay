@@ -12,13 +12,14 @@
 		"pixabay"
     ],
     "support": {
-        "docs": "https://www.webburo-spring.nl/",
-        "issues": "https://www.webburo-spring.nl/"
+		"issues": "https://github.com/webburo-spring/craft-spring-pixabay/issues?state=open",
+		"source": "https://github.com/webburo-spring/craft-spring-pixabay",
+		"docs": "https://github.com/webburo-spring/craft-spring-pixabay/blob/master/README.md"
     },
     "license": "",
     "authors": [
         {
-            "name": "Ruben Holthuijsen",
+            "name": "Ruben Holthuijsen, Webburo Spring",
             "homepage": "https://www.webburo-spring.nl/"
         }
     ],
@@ -31,11 +32,11 @@
         }
     },
     "extra": {
-        "name": "Spring Pixabay",
+        "name": "Pixabay plugin by Webburo Spring",
         "handle": "spring-pixabay",
         "hasCpSettings": true,
         "hasCpSection": true,
-        "changelogUrl": "https://www.webburo-spring.nl/",
+        "changelogUrl": "https://github.com/webburo-spring/craft-spring-pixabay/blob/master/CHANGELOG.md",
         "class": "webburospring\\pixabay\\PixabayPlugin"
     }
 }

@@ -1,8 +1,22 @@
 {% import "_includes/forms" as forms %}
 
+<div style="display: flex;">
+	<div class="flex-grow">
+		{{ '[PLUGINDESCRIPTION]'|t('spring-pixabay')|md }}
+		{% if settings.apiKey is empty %}
+		<p class="error">{{ 'Enter an API key for Pixabay and click "Save" to enable this plugin.'|t('spring-pixabay') }}</p>
+		{% endif %}
+	</div>
+	<div>
+		<a href="https://www.webburo-spring.nl/">
+			<img src="{{ craft.app.assetManager.getPublishedUrl('@webburospring/pixabay/assets/dist/webburo-spring.png', true) }}" alt="Webburo Spring" title="Webburo Spring">
+		</a>
+	</div>
+</div>
+
 {{ forms.textField({
-	label: 'Pixabay API key',
-	instructions: 'See https://pixabay.com/api/docs/',
+	label: 'Pixabay API key'|t('spring-pixabay'),
+	instructions: 'See {url}'|t('spring-pixabay', { url: 'https://pixabay.com/api/docs/' }),
 	id: 'apiKey',
 	name: 'apiKey',
 	value: settings.apiKey,
