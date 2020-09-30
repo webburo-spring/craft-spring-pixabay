@@ -30,6 +30,11 @@ class PixabayPlugin extends Plugin
 		if (Craft::$app->request->isCpRequest && Craft::$app->user->identity && $this->settings->apiKey) {
 
 			$logo = Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.svg', true);
+			
+			//Explicitly publish these
+			Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.css', true);
+			Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.js', true);
+			
 			$defaultText = Craft::t('spring-pixabay', 'Use the search box above to search Pixabay.');
 			
 			Craft::$app->view->registerTranslations('spring-pixabay', [
@@ -37,6 +42,9 @@ class PixabayPlugin extends Plugin
 				'No results for "{query}"',
 				'{n,plural,=1{# picture} other{# pictures}} selected',
 				'Downloading pictures...',
+				'Previous page',
+				'Next page',
+				'Page {p}',
 			]);
 			
 			$jsVars = [

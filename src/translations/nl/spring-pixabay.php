@@ -14,4 +14,7 @@ GitHub repository: [webburo-spring/craft-spring-pixabay](https://github.com/webb
 	'Downloading pictures...' => 'Foto\'s worden geladen...',
 	'Pixabay API key' => 'Pixabay API-sleutel',
 	'See {url}' => 'Zie {url}',
+	'Previous page' => 'Vorige pagina',
+	'Next page' => 'Volgende pagina',
+	'Page {p}' => 'Pagina {p}',
 ];
