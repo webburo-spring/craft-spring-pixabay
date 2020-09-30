@@ -19,7 +19,7 @@
 						//Asset modal only
 						
 						//Create Pixabay button
-						var $btn = $('<button class="btn pixabay-btn" data-icon="search">Zoek op Pixabay</button>');
+						var $btn = $(PixabayButton);
 						var pixabayModal;
 						var selectedImages = [];
 						var isDownloading = false;
@@ -30,9 +30,7 @@
 							if (!pixabayModal) {
 								//Create modal
 								
-								var defaultText = 'Typ hierboven om te zoeken op Pixabay';
-								
-								var $pixabayModal = $('<div class="modal elementselectormodal"><div class="body"><div class="content"><div class="main"><div class="toolbar flex flex-nowrap"><div class="flex-grow texticon search icon clearable"><input type="text" class="text fullwidth pixabay-search" autocomplete="off" placeholder="Zoeken"></div></div><div class="pixabay-results">' + Craft.escapeHtml(defaultText) + '</div></div></div></div><div class="footer"><div class="buttons left"><a href="https://www.pixabay.com/" alt="Pixabay" title="Pixabay" target="_blank" class="pixabay-logo"><img src="' + Craft.escapeHtml(PixabayLogo) + '" tabindex="-1"></a><span class="pixabay-selected"></span></div><div class="buttons right"><button type="button" class="btn pixabay-cancel" tabindex="0">Afbreken</button><button type="button" class="btn disabled submit pixabay-download">Gebruik geselecteerde foto\'s</button></div></div></div>');
+								var $pixabayModal = $(PixabayModal);
 								
 								pixabayModal = new Garnish.Modal($pixabayModal, {});
 								pixabayModal.on('fadeIn', function (e) {
@@ -46,7 +44,7 @@
 									
 									if (typeof query != 'string' || query.trim() == '') {
 										//Empty query
-										$pixabayModal.find('.pixabay-results').html(Craft.escapeHtml(defaultText));
+										$pixabayModal.find('.pixabay-results').html(Craft.escapeHtml(PixabayDefaultText));
 										return;
 									}
 									
@@ -56,7 +54,7 @@
 									var thisRequest = Math.random().toString().replace('0.', '');
 									requestId = thisRequest;
 									
-									$pixabayModal.find('.pixabay-results').html('<span class="spinner"></span>');
+									$pixabayModal.find('.pixabay-results').html(PixabayLoading);
 									
 									$.ajax(Craft.getActionUrl('spring-pixabay/pixabay/search'), {
 										data: { query: query, page: page },
@@ -70,13 +68,13 @@
 											
 											if (!result || !result.success) {
 												//No success or unexpected result
-												$pixabayModal.find('.pixabay-results').html('Er is een fout opgetreden bij het ophalen van de Pixabay gegevens.');
+												$pixabayModal.find('.pixabay-results').html('<p class="error">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'An error occured while loading Pixabay data') + '</p>'));
 												console.error('[PIXABAY]', result);
 											}
 											
 											if (!result.data || !result.data.hits || !result.data.hits.length) {
 												//Nothing found
-												$pixabayModal.find('.pixabay-results').html('Er is niets gevonden.');
+												$pixabayModal.find('.pixabay-results').html(Craft.escapeHtml(Craft.t('spring-pixabay', 'No results for "{query}"', { query: result.data._query })));
 												return;
 											}
 											
@@ -85,7 +83,9 @@
 											for (var i = 0; i < result.data.hits.length; i++) {
 												//Show pictures
 												var pic = result.data.hits[i];
-												html += '<label class="pixabay-item' + (selectedImages.indexOf(pic.imageURL) > -1 ? ' selected' : '') + '" style="background-image: url(' + Craft.escapeHtml(pic.previewURL) + ');" data-image="' + Craft.escapeHtml(pic.imageURL) + '"></label>';
+												var url = pic.imageURL ? pic.imageURL : pic.largeImageURL;
+												
+												html += '<label class="pixabay-item' + (selectedImages.indexOf(url) > -1 ? ' selected' : '') + '" tabindex="0" style="background-image: url(' + Craft.escapeHtml(pic.previewURL) + ');" data-image="' + Craft.escapeHtml(url) + '" title="' + Craft.escapeHtml(pic.tags) + '"></label>';
 											}
 											
 											for (var i = result.data.hits.length; i < 20; i++)
@@ -98,11 +98,10 @@
 											//Previous and Next page buttons
 											html += '<div class="flex pixabay-pagination"><div class="flex">';
 											
+											html += '<button class="btn pixabay-pagebtn fullwidth' + (hasPrev ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page - 1) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Previous page')) + '</button>';
+											html += '<button class="btn secondary pixabay-pagebtn fullwidth' + (hasNext ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page + 1) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Next page')) + '</button>';
 											
-											html += '<button class="btn pixabay-pagebtn fullwidth' + (hasPrev ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page - 1) + '">Vorige pagina</button>';
-											html += '<button class="btn secondary pixabay-pagebtn fullwidth' + (hasNext ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page + 1) + '">Volgende pagina</button>';
-											
-											html += '<p class="pixabay-pagelabel fullwidth">Pagina ' + Craft.escapeHtml(result.data._page) /* + ' van ' + Craft.escapeHtml(lastPage) */ + '</p>';
+											html += '<p class="pixabay-pagelabel fullwidth">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Page {p}', { p: result.data._page })) + '</p>';
 											
 											html += '</div>';
 											
@@ -110,8 +109,8 @@
 											
 											$pixabayModal.find('.pixabay-results').html(html);
 											
-											$pixabayModal.find('.pixabay-item').click(function () {
-												//Item click handler
+											var selectItem = function () {
+												//Item select handler
 												
 												var key = selectedImages.indexOf($(this).data('image'));
 												if (key > -1) {
@@ -124,12 +123,19 @@
 												
 												if (selectedImages.length) {
 													$pixabayModal.find('.pixabay-download').removeClass('disabled');
-													$pixabayModal.find('.pixabay-selected').html(selectedImages.length + ' foto' + (selectedImages.length == 1 ? '' : '\'s') + ' gekozen');
+													$pixabayModal.find('.pixabay-selected').html(Craft.escapeHtml(Craft.t('spring-pixabay', '{n,plural,=1{# picture} other{# pictures}} selected', { n: selectedImages.length })));
 												} else {
 													$pixabayModal.find('.pixabay-download').addClass('disabled');
 													$pixabayModal.find('.pixabay-selected').html('');
 												}
 												
+											};
+											
+											$pixabayModal.find('.pixabay-item').click(selectItem);
+											$pixabayModal.find('.pixabay-item').on('keydown', function (e) {
+												//Select item on enter or space press
+												if (e.which == 13 || e.which == 32)
+													selectItem.call(this);
 											});
 											
 											$pixabayModal.find('.pixabay-pagebtn').click(function () {
@@ -148,8 +154,8 @@
 													return;
 												
 												$(this).addClass('disabled');
-												$pixabayModal.find('.body').addClass('flex');
-												$pixabayModal.find('.body').html('<div class="pixabay-progress progress-shade"><p><b>De foto\'s worden opgehaald...</b></p><div class="progressbar"><div class="progressbar-inner" style="width: 0%;"></div></div><div class="progressbar-status"></div></div>');
+												$pixabayModal.find('.body').addClass('pixabay-progress-body');
+												$pixabayModal.find('.body').html('<div class="pixabay-progress progress-shade"><p><b>' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Downloading pictures...')) + '</b></p><div class="progressbar"><div class="progressbar-inner" style="width: 0%;"></div></div><div class="progressbar-status"></div></div>');
 												
 												isDownloading = true;
 												uploadedAssets = [];

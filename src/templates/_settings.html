@@ -1,7 +1,9 @@
+{% import "_includes/forms" as forms %}
+
 {{ forms.textField({
 	label: 'Pixabay API key',
 	instructions: 'See https://pixabay.com/api/docs/',
 	id: 'apiKey',
 	name: 'apiKey',
 	value: settings.apiKey,
-)} }}
+}) }}
