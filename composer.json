@@ -2,7 +2,7 @@
     "name": "webburospring/craft-spring-pixabay",
     "description": "Pixabay plugin by Webburo Spring",
     "type": "craft-plugin",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "keywords": [
         "craft",
         "cms",
