@@ -1,0 +1,54 @@
+body.ltr .flex > .pixabay-item,
+body.rtl .flex > .pixabay-item {
+	width: 150px;
+	height: 145px;
+	margin: 2px 5px !important;
+	background-position: center center;
+	background-repeat: no-repeat;
+	border-radius: 3px;
+	border: solid 3px transparent;
+	cursor: pointer;
+}
+
+.pixabay-item.selected {
+	background-color: #DDE;
+	border-color: #DDE;
+}
+
+.pixabay-selected {
+	padding: 5px 20px;
+	font-weight: bold;
+}
+
+.pixabay-logo img {
+	height: 24px;
+	padding-top: 5px;
+	border: 0;
+}
+
+.pixabay-btn {
+	margin-left: 5px;
+}
+
+.pixabay-pagination {
+	width: 150px;
+	height: 145px;
+	margin: 2px 5px !important;
+}
+
+.pixabay-pagination > * {
+	margin: auto auto;
+}
+
+.pixabay-pagebtn {
+	margin:5px !important;
+}
+
+.pixabay-pagelabel {
+	text-align: center;
+	margin-top: 5px;
+}
+
+.pixabay-progress {
+	margin: auto auto;
+}

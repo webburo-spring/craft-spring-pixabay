@@ -1,0 +1,41 @@
+{
+    "name": "webburospring/craft-spring-pixabay",
+    "description": "Pixabay plugin by Webburo Spring",
+    "type": "craft-plugin",
+    "version": "0.0.1",
+    "keywords": [
+        "craft",
+        "cms",
+        "craftcms",
+        "craft-plugin",
+        "spring",
+		"pixabay"
+    ],
+    "support": {
+        "docs": "https://www.webburo-spring.nl/",
+        "issues": "https://www.webburo-spring.nl/"
+    },
+    "license": "",
+    "authors": [
+        {
+            "name": "Ruben Holthuijsen",
+            "homepage": "https://www.webburo-spring.nl/"
+        }
+    ],
+    "require": {
+        "craftcms/cms": "^3.0.0-RC1"
+    },
+    "autoload": {
+        "psr-4": {
+          "webburospring\\pixabay\\": "src/"
+        }
+    },
+    "extra": {
+        "name": "Spring Pixabay",
+        "handle": "spring-pixabay",
+        "hasCpSettings": true,
+        "hasCpSection": true,
+        "changelogUrl": "https://www.webburo-spring.nl/",
+        "class": "webburospring\\pixabay\\PixabayPlugin"
+    }
+}
