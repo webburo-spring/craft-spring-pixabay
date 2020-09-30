@@ -42,6 +42,9 @@ class PixabayPlugin extends Plugin
 				'No results for "{query}"',
 				'{n,plural,=1{# picture} other{# pictures}} selected',
 				'Downloading pictures...',
+				'Previous page',
+				'Next page',
+				'Page {p}',
 			]);
 			
 			$jsVars = [
