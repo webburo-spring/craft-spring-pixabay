@@ -189,7 +189,7 @@
 										return;
 									
 									$.ajax(Craft.getActionUrl('spring-pixabay/pixabay/download'), {
-										data: { url: urls[n], folder: elementModal.elementIndex.sourceKey.replace('folder:', '') },
+										data: { url: urls[n], folder: elementModal.elementIndex.sourceKey.replace(/^.*folder:/, '') },
 										dataType: 'json',
 										success: function (result) {
 											
@@ -273,6 +273,6 @@
 	}; //inject()
 	
 	//Try to inject until Craft JS is loaded
-	var interval = setInterval(inject, 1);
+	var interval = setInterval(inject, 10);
 
 })();

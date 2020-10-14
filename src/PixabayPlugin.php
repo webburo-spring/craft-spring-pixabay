@@ -34,10 +34,6 @@ class PixabayPlugin extends Plugin
 
 					$logo = Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.svg', true);
 					
-					//Explicitly publish these
-					Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.css', true);
-					Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.js', true);
-					
 					$defaultText = Craft::t('spring-pixabay', 'Use the search box above to search Pixabay.');
 					
 					Craft::$app->view->registerTranslations('spring-pixabay', [
@@ -62,7 +58,12 @@ class PixabayPlugin extends Plugin
 						$script .= ($script ? ', ' : 'var ') . $var . ' = ' . json_encode($val);
 					
 					Craft::$app->view->registerScript($script);
-					Craft::$app->view->registerAssetBundle(PixabayAssets::class);
+					
+					//Explicitly publish and register these since asset bundles don't work reliably
+					$css = Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.css', true);
+					$js = Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.js', true);
+					Craft::$app->view->registerCssFile($css);
+					Craft::$app->view->registerJsFile($js);
 				}
 		
 			}
