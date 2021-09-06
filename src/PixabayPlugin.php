@@ -1,4 +1,11 @@
 <?php
+/* ____              __              ____  __              __
+  /  __\ ____  ___  /_/___  ____    / __ \/_/_  __  _____ / /_  _____ __  __
+  \  \  / __ \/ __\/ / __ \/ __ \  / /_/ / /\ \/ _\/ __  / __ \/ __  / / / /
+ __\  \/ /_/ / /  / / / / / /_/ / / ____/ /_/  _/ / /_/ / /_/ / /_/ / /_/ /
+/_____/ ____/_/  /_/_/ /_/\__  / /_/   /_/\__/\_\ \__/\/_____/\__/\/\__  /
+     /_/                 /____/                                    /____/
+*/
 namespace webburospring\pixabay;
 
 use webburospring\pixabay\assets\PixabayAssets;
@@ -30,7 +37,7 @@ class PixabayPlugin extends Plugin
 			function (TemplateEvent $e) {
 		
 				//Register asset bundle and Javascript variables (from template macros) in CP requests
-				if (Craft::$app->request->isCpRequest && !Craft::$app->user->isGuest && $this->settings->apiKey) {
+				if (Craft::$app->request->isCpRequest && $e->templateMode == 'cp' && !Craft::$app->user->isGuest && $this->settings->apiKey) {
 
 					$logo = Craft::$app->assetManager->getPublishedUrl('@webburospring/pixabay/assets/dist/pixabay.svg', true);
 					
