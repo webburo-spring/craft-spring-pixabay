@@ -11,6 +11,14 @@
 						<div class="flex-grow texticon search icon clearable">
 							<input type="text" class="text fullwidth pixabay-search" autocomplete="off" placeholder="{{ 'Search'|t('app') }}">
 						</div>
+						<div class="select">
+							<select class="pixabay-search-type">
+								<option value="">{{ 'All'|t('app') }}</option>
+								<option value="photo">{{ 'Photos'|t('spring-pixabay') }}</option>
+								<option value="illustration">{{ 'Illustrations'|t('spring-pixabay') }}</option>
+								<option value="vector">{{ 'Vector Graphics'|t('spring-pixabay') }}</option>
+							</select>
+						</div>
 					</div>
 					<div class="pixabay-results">
 						{{ defaultText ?? '' }}
