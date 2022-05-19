@@ -17,4 +17,7 @@ GitHub repository: [webburo-spring/craft-spring-pixabay](https://github.com/webb
 	'Previous page' => 'Vorige pagina',
 	'Next page' => 'Volgende pagina',
 	'Page {p}' => 'Pagina {p}',
+	'Photos' => 'Foto\'s',
+	'Illustrations' => 'Illustraties',
+	'Vector Graphics' => 'Vectorafbeeldingen',
 ];
