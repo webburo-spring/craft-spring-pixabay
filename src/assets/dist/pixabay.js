@@ -101,8 +101,8 @@
 											//Previous and Next page buttons
 											html += '<div class="flex pixabay-pagination"><div class="flex">';
 
-											html += '<button class="btn pixabay-pagebtn fullwidth' + (hasPrev ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page - 1) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Previous page')) + '</button>';
-											html += '<button class="btn secondary pixabay-pagebtn fullwidth' + (hasNext ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page + 1) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Next page')) + '</button>';
+											html += '<button class="btn pixabay-pagebtn fullwidth' + (hasPrev ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page - 1) + '" data-type="' + Craft.escapeHtml(result.data._type) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Previous page')) + '</button>';
+											html += '<button class="btn secondary pixabay-pagebtn fullwidth' + (hasNext ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page + 1) + '" data-type="' + Craft.escapeHtml(result.data._type) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Next page')) + '</button>';
 
 											html += '<p class="pixabay-pagelabel fullwidth">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Page {p}', { p: result.data._page })) + '</p>';
 
@@ -147,7 +147,7 @@
 												if (!$(this).data('page') || $(this).data('page') < 1 || $(this).data('page') > lastPage)
 													return;
 
-												pixabaySearch($(this).data('query'), $(this).data('page'));
+												pixabaySearch($(this).data('query'), $(this).data('page'),  $(this).data('type'));
 											});
 
 											$pixabayModal.find('.pixabay-download').click(function () {
