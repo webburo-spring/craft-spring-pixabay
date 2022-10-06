@@ -98,15 +98,50 @@ class PixabayController extends Controller
 		$this->requireAcceptsJson();
 
 		$url = Craft::$app->request->getRequiredParam('url');
-		$folderId = Craft::$app->request->getRequiredParam('folder');
+		$target = Craft::$app->request->getRequiredParam('target');
 
-		//Find the folder, either by id or by uid
-		$folder = Craft::$app->assets->findFolder([(is_numeric($folderId) ? 'id' : 'uid') => $folderId]);
-		if (!$folder)
-			throw new \Error('Folder not found: ' . $folderId);
+		$folderId = $volumeId = null;
+
+		foreach (explode('/', $target) as $t) {
+			//Find the upload target
+			//Depending on Craft version and setup, this can be folderId:X, folderId:XXXX-YYYY-ZZZ, volumeId:XXXX-YYYY-ZZZ, or even volumeId:XXXX-YYYY-ZZZ/folderId:XXXX-YYYY-ZZZ
+			$t = explode(':', $t);
+			if ($t[0] == 'volume' || $t == 'volumeId')
+				$volumeId = $t[1] ?? null;
+			if ($t[0] == 'folder' || $t == 'folderId')
+				$folderId = $t[1] ?? null;
+		}
+
+		if ($folderId) {
+
+			//Find the folder, either by id or by uid
+			$folder = Craft::$app->assets->findFolder([(is_numeric($folderId) ? 'id' : 'uid') => $folderId]);
+			if (!$folder)
+				throw new \Error('Folder not found: ' . $folderId);
+			
+			$volume = $folder->volume;
+
+		} elseif ($volumeId) {
+
+			//Find the volume, either by id or by uid
+			$fn = 'getVolumeBy' . (is_numeric($volumeId) ? 'Id' : 'Uid');
+			$volume = Craft::$app->volumes->$fn($volumeId);
+			if (!$volume)
+				throw new \Error('Volume not found: ' . $volumeId);
+
+			//Find the base folder for this volume
+			$folder = Craft::$app->assets->findFolder(['volumeId' => $volume->id, 'parentId' => ':empty:']);
+
+			if (!$folder)
+				throw new \Error('Folder not found for volume: ' . $volumeId);
+		} else {
+			throw new \Error('Unknown upload target: ' . $target);
+		}
 
 		//Check if user has permission to save assets here (permission name depends on Craft version). We use requireAdmin as a fallback in case of future changes.
-		if (!Craft::$app->user->checkPermission('saveAssetInVolume:' . $folder->volume->uid) && !Craft::$app->user->checkPermission('saveAssetInVolume:' . $folder->volumeId))
+		if (!Craft::$app->user->checkPermission('saveAssets:' . $volume->uid)
+		 && !Craft::$app->user->checkPermission('saveAssetInVolume:' . $volume->uid)
+		 && !Craft::$app->user->checkPermission('saveAssetInVolume:' . $volume->id))
 			$this->requireAdmin();
 
 		if (!preg_match('/^https?\:\/\/[^\/]*pixabay.com\//', $url))
@@ -140,7 +175,7 @@ class PixabayController extends Controller
 		$asset->tempFilePath = $cacheDir . DIRECTORY_SEPARATOR . $file;
 		$asset->filename = $file;
 		$asset->newFolderId = $folder->id;
-		$asset->setVolumeId($folder->volumeId);
+		$asset->setVolumeId($volume->id);
 		$asset->uploaderId = Craft::$app->user->id;
 		$asset->avoidFilenameConflicts = true;
 		$asset->setScenario(Asset::SCENARIO_CREATE);

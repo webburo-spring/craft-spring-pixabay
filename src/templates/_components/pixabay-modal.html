@@ -1,0 +1,41 @@
+<div class="modal elementselectormodal">
+    <div class="body">
+        <div class="content">
+            <div class="main">
+                <div class="toolbar flex flex-nowrap">
+                    <div class="flex-grow texticon search icon clearable">
+                        <input type="text" class="text fullwidth pixabay-search" autocomplete="off" placeholder="{{ 'Search'|t('app') }}">
+                    </div>
+                    <div class="select">
+                        <select class="pixabay-search-type">
+                            <option value="">{{ 'All'|t('app') }}</option>
+                            <option value="photo">{{ 'Photos'|t('spring-pixabay') }}</option>
+                            <option value="illustration">{{ 'Illustrations'|t('spring-pixabay') }}</option>
+                            <option value="vector">{{ 'Vector Graphics'|t('spring-pixabay') }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pixabay-results">
+                    {{ defaultText ?? '' }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="buttons left">
+            {% if (logo ?? '') is not empty %}
+            {# Having the logo is required by Pixabay #}
+            <a href="https://www.pixabay.com/" alt="Pixabay" title="Pixabay" target="_blank" class="pixabay-logo">
+                <img src="{{ logo }}" tabindex="-1">
+            </a>
+            {% endif %}
+            <span class="pixabay-selected">
+                {# "X photos selected" #}
+            </span>
+        </div>
+        <div class="buttons right">
+            <button type="button" class="btn pixabay-cancel" tabindex="0">{{ 'Cancel'|t('app') }}</button>
+            <button type="button" class="btn disabled submit pixabay-download">{{ 'Download selected pictures'|t('spring-pixabay') }}</button>
+        </div>
+    </div>
+</div>
