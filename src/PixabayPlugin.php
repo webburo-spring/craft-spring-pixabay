@@ -12,6 +12,7 @@ use webburospring\pixabay\assets\PixabayAssets;
 use webburospring\pixabay\models\SettingsModel;
 
 use Craft;
+use craft\base\Model;
 use craft\base\Plugin;
 use craft\events\TemplateEvent;
 use craft\web\View;
@@ -55,9 +56,9 @@ class PixabayPlugin extends Plugin
 					
 					$jsVars = [
 						'PixabayDefaultText' => $defaultText,
-						'PixabayButton' => Craft::$app->view->renderTemplateMacro('spring-pixabay/_macros', 'pixabayButton'),
-						'PixabayModal' => Craft::$app->view->renderTemplateMacro('spring-pixabay/_macros', 'pixabayModal', ['logo' => $logo, 'defaultText' => $defaultText]),
-						'PixabayLoading' => Craft::$app->view->renderTemplateMacro('spring-pixabay/_macros', 'pixabayLoading'),
+						'PixabayButton' => Craft::$app->view->renderTemplate('spring-pixabay/_components/pixabay-button'),
+						'PixabayModal' => Craft::$app->view->renderTemplate('spring-pixabay/_components/pixabay-modal', ['logo' => $logo, 'defaultText' => $defaultText]),
+						'PixabayLoading' => Craft::$app->view->renderTemplate('spring-pixabay/_components/pixabay-loading'),
 					];
 					
 					$script = '';
@@ -79,14 +80,14 @@ class PixabayPlugin extends Plugin
 	}
 
 
-	protected function createSettingsModel() {
+	protected function createSettingsModel(): Model {
 		//Plugin settings model
 		
 		return new SettingsModel();
 	}
 
 
-	protected function settingsHtml() {
+	protected function settingsHtml(): string {
 		//Plugin settings page template
 		
 		return Craft::$app->view->renderTemplate('spring-pixabay/_settings', ['settings' => $this->settings]);
