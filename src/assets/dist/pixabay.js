@@ -192,7 +192,7 @@
 										return;
 
 									$.ajax(Craft.getActionUrl('spring-pixabay/pixabay/download'), {
-										data: { url: urls[n], folder: elementModal.elementIndex.sourceKey.replace(/^.*folder:/, '') },
+										data: { url: urls[n], target: elementModal.elementIndex.sourceKey },
 										dataType: 'json',
 										success: function (result) {
 
