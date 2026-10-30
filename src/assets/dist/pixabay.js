@@ -1,281 +1,277 @@
 (function () {
 
-	var inject = function () {
+	//The script can be registered again on later page loads, but the observer only needs to run once
+	if (window.PixabayLoaded)
+		return;
+	window.PixabayLoaded = true;
+
+	var t = function (message, params) {
+		return Craft.escapeHtml(Craft.t('spring-pixabay', message, params));
+	};
 
-		if (typeof Craft == 'object' && Craft !== null && typeof Craft.createElementSelectorModal == 'function') {
-			//Craft JS has finished loading
+	var actionUrl = function (url, params) {
+		//Add query params to an action URL (which may already have a query string)
 
-			clearInterval(interval);
+		var u = new URL(url, window.location.href);
+		for (var key in params)
+			u.searchParams.set(key, params[key]);
+		return u.toString();
+	};
 
-			Craft.createElementSelectorModal = (function (originalFn) {
-				//Replace createElementSelectorModal function
+	var createPixabayModal = function (selectorModal) {
+		//Create the Pixabay modal for an asset selector modal
 
-				return function (type, config) {
+		var $pixabayModal = $(PixabayModal);
+		var pixabayModal = $pixabayModal[0];
+		var selectedImages = [];
+		var requestId;
+		var downloadController = null;
+
+		var updateSelected = function () {
+			//Update the "X pictures selected" text and download button
+
+			$pixabayModal.find('.pixabay-selected').html(selectedImages.length ? t('{n,plural,=1{# picture} other{# pictures}} selected', { n: selectedImages.length }) : '');
+			$pixabayModal.find('.pixabay-download')[0].toggleAttribute('disabled', !selectedImages.length || !!downloadController);
+		};
 
-					//Let the original function create the modal
-					var elementModal = originalFn.call(this, type, config);
+		var showError = function (message) {
+			$pixabayModal.find('.pixabay-results').html('<p class="pixabay-error">' + Craft.escapeHtml(message) + '</p>');
+		};
+
+		var pixabaySearch = function (query, page, type) {
+			//Search query changed
 
-					if (type == 'craft\\elements\\Asset') {
-						//Asset modal only
+			if (typeof query != 'string' || query.trim() == '') {
+				//Empty query
+				$pixabayModal.find('.pixabay-results').html(Craft.escapeHtml(PixabayDefaultText));
+				return;
+			}
 
-						//Create Pixabay button
-						var $btn = $(PixabayButton);
-						var pixabayModal;
-						var selectedImages = [];
-						var isDownloading = false;
+			if (!page)
+				page = 1;
 
-						//On button click
-						$btn.click(function (e) {
+			if (!type)
+				type = '';
 
-							if (!pixabayModal) {
-								//Create modal
+			var thisRequest = Math.random().toString().replace('0.', '');
+			requestId = thisRequest;
 
-								var $pixabayModal = $(PixabayModal);
+			$pixabayModal.find('.pixabay-results').html(PixabayLoading);
 
-								pixabayModal = new Garnish.Modal($pixabayModal, {});
-								pixabayModal.on('fadeIn', function (e) {
-									$pixabayModal.find('.pixabay-search').focus();
-								});
+			fetch(actionUrl(PixabaySearchUrl, { query: query, page: page, type: type }), { headers: { Accept: 'application/json' } })
+				.then(function (response) {
+					if (!response.ok)
+						throw new Error(response.status + ' ' + response.statusText);
+					return response.json();
+				})
+				.then(function (result) {
 
-								var requestId;
+					if (requestId != thisRequest) {
+						//Old request
+						return;
+					}
 
-								var pixabaySearch = function (query, page, type) {
-									//Search query changed
+					if (!result || !result.success) {
+						//No success or unexpected result
+						console.error('[PIXABAY]', result);
+						showError(Craft.t('spring-pixabay', 'An error occured while loading Pixabay data'));
+						return;
+					}
 
-									if (typeof query != 'string' || query.trim() == '') {
-										//Empty query
-										$pixabayModal.find('.pixabay-results').html(Craft.escapeHtml(PixabayDefaultText));
-										return;
-									}
+					if (!result.data.hits.length) {
+						//Nothing found
+						$pixabayModal.find('.pixabay-results').html(t('No results for "{query}"', { query: result.data._query }));
+						return;
+					}
 
-									if (!page)
-										page = 1;
+					var html = '<div class="pixabay-grid">';
 
-									if (!type)
-										type = '';
+					for (var i = 0; i < result.data.hits.length; i++) {
+						//Show pictures
+						var pic = result.data.hits[i];
+						var url = pic.vectorURL || pic.imageURL || pic.largeImageURL;
+						var selected = selectedImages.indexOf(url) > -1;
 
-									var thisRequest = Math.random().toString().replace('0.', '');
-									requestId = thisRequest;
+						html += '<button type="button" class="pixabay-item' + (selected ? ' selected' : '') + '" aria-pressed="' + selected + '" style="background-image: url(' + Craft.escapeHtml(pic.previewURL) + ');" data-image="' + Craft.escapeHtml(url) + '" title="' + Craft.escapeHtml(pic.tags) + '" aria-label="' + Craft.escapeHtml(pic.tags) + '"></button>';
+					}
 
-									$pixabayModal.find('.pixabay-results').html(PixabayLoading);
+					var hasNext = (result.data.hits.length + (result.data._page - 1) * 20 < result.data.totalHits);
+					var hasPrev = (result.data._page > 1);
 
-									$.ajax(Craft.getActionUrl('spring-pixabay/pixabay/search'), {
-										data: { query: query, page: page, type: type },
-										dataType: 'json',
-										success: function (result) {
+					//Previous and Next page buttons
+					html += '<div class="pixabay-pagination">';
 
-											if (requestId != thisRequest) {
-												//Old request
-												return;
-											}
+					html += '<craft-button type="button" class="pixabay-pagebtn"' + (hasPrev ? '' : ' disabled') + ' data-page="' + (result.data._page - 1) + '">' + t('Previous page') + '</craft-button>';
+					html += '<craft-button type="button" class="pixabay-pagebtn"' + (hasNext ? '' : ' disabled') + ' data-page="' + (result.data._page + 1) + '">' + t('Next page') + '</craft-button>';
 
-											if (!result || !result.success) {
-												//No success or unexpected result
-												$pixabayModal.find('.pixabay-results').html('<p class="error">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'An error occured while loading Pixabay data') + '</p>'));
-												console.error('[PIXABAY]', result);
-											}
+					html += '<p class="pixabay-pagelabel">' + t('Page {p}', { p: result.data._page }) + '</p>';
 
-											if (!result.data || !result.data.hits || !result.data.hits.length) {
-												//Nothing found
-												$pixabayModal.find('.pixabay-results').html(Craft.escapeHtml(Craft.t('spring-pixabay', 'No results for "{query}"', { query: result.data._query })));
-												return;
-											}
+					html += '</div>';
 
-											var html = '<div class="flex">';
+					html += '</div>';
 
-											for (var i = 0; i < result.data.hits.length; i++) {
-												//Show pictures
-												var pic = result.data.hits[i];
-												var url = pic.vectorURL || pic.imageURL || pic.largeImageURL;
+					$pixabayModal.find('.pixabay-results').html(html);
 
-												html += '<label class="pixabay-item' + (selectedImages.indexOf(url) > -1 ? ' selected' : '') + '" tabindex="0" style="background-image: url(' + Craft.escapeHtml(pic.previewURL) + ');" data-image="' + Craft.escapeHtml(url) + '" title="' + Craft.escapeHtml(pic.tags) + '"></label>';
-											}
+					$pixabayModal.find('.pixabay-item').on('click', function () {
+						//Item select handler
 
-											for (var i = result.data.hits.length; i < 20; i++)
-												html += '<div></div>';
+						var key = selectedImages.indexOf($(this).data('image'));
+						if (key > -1) {
+							selectedImages.splice(key, 1);
+							$(this).removeClass('selected').attr('aria-pressed', 'false');
+						} else {
+							selectedImages.push($(this).data('image'));
+							$(this).addClass('selected').attr('aria-pressed', 'true');
+						}
 
-											var hasNext = (result.data.hits.length + (result.data._page - 1) * 20 < result.data.totalHits);
-											var hasPrev = (result.data._page > 1);
-											var lastPage = Math.ceil(result.data.totalHits / 20);
+						updateSelected();
+					});
 
-											//Previous and Next page buttons
-											html += '<div class="flex pixabay-pagination"><div class="flex">';
+					$pixabayModal.find('.pixabay-pagebtn').on('click', function () {
+						//Previous and Next page handler
 
-											html += '<button class="btn pixabay-pagebtn fullwidth' + (hasPrev ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page - 1) + '" data-type="' + Craft.escapeHtml(result.data._type) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Previous page')) + '</button>';
-											html += '<button class="btn secondary pixabay-pagebtn fullwidth' + (hasNext ? '' : ' disabled') + '" data-query="' + Craft.escapeHtml(result.data._query) + '" data-page="' + Craft.escapeHtml(result.data._page + 1) + '" data-type="' + Craft.escapeHtml(result.data._type) + '">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Next page')) + '</button>';
+						if (this.hasAttribute('disabled'))
+							return;
 
-											html += '<p class="pixabay-pagelabel fullwidth">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Page {p}', { p: result.data._page })) + '</p>';
+						pixabaySearch(result.data._query, $(this).data('page'), result.data._type);
+					});
+				})
+				.catch(function (e) {
 
-											html += '</div>';
+					if (requestId != thisRequest)
+						return;
 
-											html += '</div>';
+					console.error('[PIXABAY]', e);
+					showError(e.message);
 
-											$pixabayModal.find('.pixabay-results').html(html);
+				});
 
-											var selectItem = function () {
-												//Item select handler
+		}; //pixabaySearch
 
-												var key = selectedImages.indexOf($(this).data('image'));
-												if (key > -1) {
-													selectedImages.splice(key, 1);
-													$(this).removeClass('selected');
-												} else {
-													$(this).addClass('selected');
-													selectedImages.push($(this).data('image'));
-												}
+		var pixabayDownload = function (urls) {
+			//Download the Pixabay pictures and hand them to Craft's upload input, so they're uploaded like any other file
+			//(Craft checks the permissions, handles filename conflicts and selects the new assets)
 
-												if (selectedImages.length) {
-													$pixabayModal.find('.pixabay-download').removeClass('disabled');
-													$pixabayModal.find('.pixabay-selected').html(Craft.escapeHtml(Craft.t('spring-pixabay', '{n,plural,=1{# picture} other{# pictures}} selected', { n: selectedImages.length })));
-												} else {
-													$pixabayModal.find('.pixabay-download').addClass('disabled');
-													$pixabayModal.find('.pixabay-selected').html('');
-												}
+			downloadController = new AbortController();
+			var signal = downloadController.signal;
+			var files = [];
+			var n = 0;
 
-											};
+			updateSelected();
+			$pixabayModal.find('.pixabay-toolbar').hide();
+			$pixabayModal.find('.pixabay-results').html('<div class="pixabay-progress"><p><b>' + t('Downloading pictures...') + '</b></p><div class="pixabay-progressbar"><div></div></div></div>');
 
-											$pixabayModal.find('.pixabay-item').click(selectItem);
-											$pixabayModal.find('.pixabay-item').on('keydown', function (e) {
-												//Select item on enter or space press
-												if (e.which == 13 || e.which == 32)
-													selectItem.call(this);
-											});
+			var next = function () {
 
-											$pixabayModal.find('.pixabay-pagebtn').click(function () {
-												//Previous and Next page handler
-
-												if (!$(this).data('page') || $(this).data('page') < 1 || $(this).data('page') > lastPage)
-													return;
-
-												pixabaySearch($(this).data('query'), $(this).data('page'),  $(this).data('type'));
-											});
-
-											$pixabayModal.find('.pixabay-download').click(function () {
-												//Download button
-
-												if (isDownloading || !selectedImages.length)
-													return;
-
-												$(this).addClass('disabled');
-												$pixabayModal.find('.body').addClass('pixabay-progress-body');
-												$pixabayModal.find('.body').html('<div class="pixabay-progress progress-shade"><p><b>' + Craft.escapeHtml(Craft.t('spring-pixabay', 'Downloading pictures...')) + '</b></p><div class="progressbar"><div class="progressbar-inner" style="width: 0%;"></div></div><div class="progressbar-status"></div></div>');
-
-												isDownloading = true;
-												uploadedAssets = [];
-
-												pixabayDownload(selectedImages);
-
-											});
-										}, //success()
-										error: function (xhr) {
-
-											console.error('[PIXABAY]', xhr);
-											$pixabayModal.find('.pixabay-results').html('<p class="error">' + Craft.escapeHtml(xhr.status + ' ' + xhr.statusText) + '</p>');
-
-										} //error()
-									}); //$.ajax
-
-								}; //pixabaySearch
-
-								var uploadedAssets = [];
-
-								var pixabayDownload = function (urls, n) {
-									//Download array of Pixabay URLs and save them to the server
-
-									if (!isDownloading)
-										return;
-
-									if (typeof n == 'undefined')
-										n = 0;
-
-									if (!urls || typeof urls != 'object' || typeof urls[n] == 'undefined')
-										return;
-
-									$.ajax(Craft.getActionUrl('spring-pixabay/pixabay/download'), {
-										data: { url: urls[n], target: elementModal.elementIndex.sourceKey },
-										dataType: 'json',
-										success: function (result) {
-
-											if (typeof result != 'object' || !result) {
-
-												console.error('[PIXABAY]', result);
-
-											} else {
-
-												if (result.assetId)
-													elementModal.elementIndex.selectElementAfterUpdate(result.assetId);
-
-												$pixabayModal.find('.pixabay-progress .progressbar-inner').css('width', ((n + 1) / urls.length * 100) + '%');
-
-												if (typeof urls[n + 1] != 'undefined') {
-													pixabayDownload(urls, n + 1);
-													return;
-												}
-											}
-
-											pixabayModal.hide();
-											pixabayModal = null;
-											elementModal.elementIndex.updateElements();
-
-										}, //success()
-										error: function (xhr) {
-
-											console.error('[PIXABAY]', xhr);
-
-											$pixabayModal.find('.pixabay-progress').html('<p class="error">' + Craft.escapeHtml(xhr.status + ' ' + xhr.statusText) + '</p>');
-
-											elementModal.elementIndex.updateElements();
-
-										} //error()
-									}); //$.ajax
-
-								}; //pixabayDownload()
-
-								$pixabayModal.find('.pixabay-search, .pixabay-search-type').change(function () {
-									//Search query changed
-
-									selectedImages = [];
-									$pixabayModal.find('.pixabay-item.selected').removeClass('selected');
-									$pixabayModal.find('.pixabay-selected').html('');
-									pixabaySearch($pixabayModal.find('.pixabay-search').val(), null, $pixabayModal.find('.pixabay-search-type').val());
-								});
-
-								$pixabayModal.find('.pixabay-cancel').click(function () {
-									//Cancel button
-
-									selectedImages = [];
-									$pixabayModal.find('.pixabay-item.selected').removeClass('selected');
-									$pixabayModal.find('.pixabay-selected').html('');
-									pixabayModal.hide();
-									if (isDownloading) {
-										isDownloading = false;
-										pixabayModal = null;
-										elementModal.elementIndex.updateElements();
-									}
-								});
-
-							} else {
-								//Show previously created modal
-								pixabayModal.show();
-							}
-
+				if (n >= urls.length) {
+					//All downloaded: upload them to the selected folder
+					var fileInput = selectorModal.querySelector('input[type=file][name="assets-upload"]');
+					if (fileInput) {
+						var dataTransfer = new DataTransfer();
+						files.forEach(function (file) {
+							dataTransfer.items.add(file);
 						});
+						fileInput.files = dataTransfer.files;
+						fileInput.dispatchEvent(new Event('change'));
+					}
+					downloadController = null;
+					pixabayModal.removeAttribute('open');
+					return;
+				}
 
-						$btn.insertAfter(elementModal.$secondaryButtons);
+				var url = urls[n];
 
-					} //type == craft\\elements\\Asset
+				fetch(actionUrl(PixabayDownloadUrl, { url: url }), { signal: signal })
+					.then(function (response) {
+						if (!response.ok)
+							throw new Error(response.status + ' ' + response.statusText);
+						return response.blob();
+					})
+					.then(function (blob) {
+						files.push(new File([blob], url.replace(/[?#].*$/, '').replace(/^.*\//, ''), { type: blob.type }));
+						n++;
+						$pixabayModal.find('.pixabay-progressbar > div').css('width', (n / urls.length * 100) + '%');
+						next();
+					})
+					.catch(function (e) {
+						if (signal.aborted)
+							return;
+						console.error('[PIXABAY]', e);
+						downloadController = null;
+						showError(e.message);
+					});
+			};
 
-					return elementModal;
+			next();
 
-				}; //return function
+		}; //pixabayDownload()
 
-			})(Craft.createElementSelectorModal);
+		$pixabayModal.find('.pixabay-search, .pixabay-search-type').on('change', function () {
+			//Search query changed
 
-		} //Craft JS loaded
+			selectedImages = [];
+			updateSelected();
+			pixabaySearch($pixabayModal.find('.pixabay-search').val(), null, $pixabayModal.find('.pixabay-search-type').val());
+		});
+
+		$pixabayModal.find('.pixabay-download').on('click', function () {
+			//Download button
+
+			if (this.hasAttribute('disabled') || downloadController || !selectedImages.length)
+				return;
+
+			pixabayDownload(selectedImages.slice());
+		});
+
+		$pixabayModal.find('.pixabay-cancel').on('click', function () {
+			//Cancel button
+			pixabayModal.requestClose();
+		});
+
+		$pixabayModal.on('craft-after-show', function (e) {
+			if (e.target === pixabayModal)
+				$pixabayModal.find('.pixabay-search').trigger('focus');
+		});
+
+		$pixabayModal.on('craft-after-hide', function (e) {
+			//Start over next time
+			if (e.target !== pixabayModal)
+				return;
+			if (downloadController)
+				downloadController.abort();
+			$pixabayModal.remove();
+		});
+
+		return pixabayModal;
+
+	}; //createPixabayModal()
+
+	var inject = function () {
+		//Add the Pixabay button next to the "Upload files" button of asset selector modals
+
+		document.querySelectorAll('craft-element-selector-modal').forEach(function (selectorModal) {
+
+			//Craft only adds the upload input when files can be uploaded to the selected source
+			var fileInput = selectorModal.querySelector('input[type=file][name="assets-upload"]');
+			if (!fileInput || fileInput.parentNode.querySelector('.pixabay-btn'))
+				return;
+
+			var $btn = $(PixabayButton);
+
+			$btn.on('click', function () {
+				//The modal is a dialog (like the asset selector modal), so it can be shown on top of it
+				var pixabayModal = createPixabayModal(selectorModal);
+				document.body.appendChild(pixabayModal);
+				pixabayModal.setAttribute('open', '');
+			});
+
+			fileInput.parentNode.appendChild($btn[0]);
+		});
 
 	}; //inject()
 
-	//Try to inject until Craft JS is loaded
-	var interval = setInterval(inject, 10);
+	//Asset selector modals are created (and their buttons re-rendered) at any time
+	new MutationObserver(inject).observe(document.body, { childList: true, subtree: true });
+	inject();
 
 })();

@@ -1,24 +1,24 @@
 <?php
 namespace webburospring\pixabay\controllers;
 
-use Craft;
-use craft\elements\Asset;
-use craft\web\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 use webburospring\pixabay\PixabayPlugin;
 
-class PixabayController extends Controller
+class PixabayController
 {
 
-	private function _searchUrl($query, $page = 1, $type = '') {
-		//Build API URL
+	private function _cacheFile($query, $page, $type) {
+		//Cache file for these search parameters (md5, since base64 can contain slashes)
 
-		$apiKey = PixabayPlugin::$plugin->settings->apiKey;
-		return 'https://pixabay.com/api/?key=' . urlencode($apiKey) . '&q=' . urlencode($query) . '&page=' . ((int)$page) . '&image_type=' . ((string)$type) . '&per_page=20';
+		return PixabayPlugin::cachePath() . DIRECTORY_SEPARATOR . md5(strtolower(trim($query)) . '|' . ((int)$page) . '|' . ((string)$type)) . '.json';
 	}
 
 
-	private function _getCache($query, $page,  $type) {
+	private function _getCache($query, $page, $type) {
 		//Get cached results (required by Pixabay: https://pixabay.com/api/docs/ )
 
 		$cacheDir = PixabayPlugin::cachePath();
@@ -35,7 +35,7 @@ class PixabayController extends Controller
 				unlink($cacheDir . DIRECTORY_SEPARATOR . $file);
 		}
 
-		$cacheFile = $cacheDir . DIRECTORY_SEPARATOR . base64_encode(strtolower(trim($query))) . ((int)$page) . ((string)$type) . '.json';
+		$cacheFile = $this->_cacheFile($query, $page, $type);
 
 		if (!file_exists($cacheFile))
 			return null;
@@ -47,38 +47,57 @@ class PixabayController extends Controller
 	private function _saveCache($query, $page, $type, $data) {
 		//Save results to cache
 
-		if (!is_array($data))
+		if (!\is_array($data))
 			return false;
 
 		$data['_cached'] = (new \DateTime())->format('c');
 
-		$cacheDir = PixabayPlugin::cachePath();
-		$cacheFile = $cacheDir . DIRECTORY_SEPARATOR . base64_encode(strtolower(trim($query))) . ((int)$page) . ((string)$type) . '.json';
-
-		file_put_contents($cacheFile, json_encode($data));
+		file_put_contents($this->_cacheFile($query, $page, $type), json_encode($data));
 	}
 
 
-	public function actionSearch() {
+	private function _isPixabayUrl($url) {
+		//Only download from (subdomains of) pixabay.com
+
+		$parts = parse_url($url);
+		$host = strtolower($parts['host'] ?? '');
+
+		return \in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+			&& ($host == 'pixabay.com' || str_ends_with($host, '.pixabay.com'));
+	}
+
+
+	public function search(Request $request): JsonResponse {
 		//Search Pixabay
 
-		$this->requireAcceptsJson();
+		$query = (string)$request->query('query', '');
+		abort_if(trim($query) === '', 400, 'Missing query');
 
-		$query = Craft::$app->request->getRequiredParam('query');
-		$page = (int)Craft::$app->request->getParam('page', 1);
-		if ($page < 1)
-			$page = 1;
-
-		$type = Craft::$app->request->getParam('type', '');
+		$page = max(1, (int)$request->query('page', 1));
+		$type = (string)$request->query('type', '');
+		if (!\in_array($type, ['', 'all', 'photo', 'illustration', 'vector'], true))
+			$type = '';
 
 		//Try to see if we have this query cached
 		$cachedData = $this->_getCache($query, $page, $type);
 		if ($cachedData)
-			return $this->asJson(['success' => true, 'data' => $cachedData]);
+			return new JsonResponse(['success' => true, 'data' => $cachedData]);
 
-		$url = $this->_searchUrl($query, $page, $type);
+		try {
+			$pixabayData = Http::timeout(30)->get('https://pixabay.com/api/', [
+				'key' => PixabayPlugin::$plugin->getSettings()->apiKey,
+				'q' => $query,
+				'page' => $page,
+				'image_type' => $type,
+				'per_page' => 20,
+			])->json();
+		} catch (\Throwable $e) {
+			$pixabayData = null;
+		}
 
-		$pixabayData = @json_decode(@file_get_contents($url), true);
+		if (!\is_array($pixabayData))
+			$pixabayData = [];
+
 		$pixabayData['_query'] = $query;
 		$pixabayData['_page'] = $page;
 		$pixabayData['_type'] = $type;
@@ -88,101 +107,35 @@ class PixabayController extends Controller
 		if ($success)
 			$this->_saveCache($query, $page, $type, $pixabayData);
 
-		return $this->asJson(['success' => $success, 'data' => $pixabayData]);
+		return new JsonResponse(['success' => $success, 'data' => $pixabayData]);
 	}
 
 
-	public function actionDownload() {
-		//Download photo from Pixabay
+	public function download(Request $request): BinaryFileResponse {
+		//Download a picture from Pixabay and pass it on to the browser, which uploads it to the selected folder like any other file
+		//(Craft's upload checks the volume permissions, handles filename conflicts and selects the new asset)
 
-		$this->requireAcceptsJson();
+		$url = (string)$request->query('url', '');
 
-		$url = Craft::$app->request->getRequiredParam('url');
-		$target = Craft::$app->request->getRequiredParam('target');
+		abort_unless($this->_isPixabayUrl($url), 400, 'This is not a Pixabay URL: ' . $url);
 
-		$folderId = $volumeId = null;
+		$file = preg_replace('/[^\w.-]/', '', basename(parse_url($url, PHP_URL_PATH) ?? ''));
 
-		foreach (explode('/', $target) as $t) {
-			//Find the upload target
-			//Depending on Craft version and setup, this can be folderId:X, folderId:XXXX-YYYY-ZZZ, volumeId:XXXX-YYYY-ZZZ, or even volumeId:XXXX-YYYY-ZZZ/folderId:XXXX-YYYY-ZZZ
-			$t = explode(':', $t);
-			if ($t[0] == 'volume' || $t == 'volumeId')
-				$volumeId = $t[1] ?? null;
-			if ($t[0] == 'folder' || $t == 'folderId')
-				$folderId = $t[1] ?? null;
-		}
+		abort_if(!$file, 400, 'Could not get filename from URL: ' . $url);
 
-		if ($folderId) {
-
-			//Find the folder, either by id or by uid
-			$folder = Craft::$app->assets->findFolder([(is_numeric($folderId) ? 'id' : 'uid') => $folderId]);
-			if (!$folder)
-				throw new \Error('Folder not found: ' . $folderId);
-			
-			$volume = $folder->volume;
-
-		} elseif ($volumeId) {
-
-			//Find the volume, either by id or by uid
-			$fn = 'getVolumeBy' . (is_numeric($volumeId) ? 'Id' : 'Uid');
-			$volume = Craft::$app->volumes->$fn($volumeId);
-			if (!$volume)
-				throw new \Error('Volume not found: ' . $volumeId);
-
-			//Find the base folder for this volume
-			$folder = Craft::$app->assets->findFolder(['volumeId' => $volume->id, 'parentId' => ':empty:']);
-
-			if (!$folder)
-				throw new \Error('Folder not found for volume: ' . $volumeId);
-		} else {
-			throw new \Error('Unknown upload target: ' . $target);
-		}
-
-		//Check if user has permission to save assets here (permission name depends on Craft version). We use requireAdmin as a fallback in case of future changes.
-		if (!Craft::$app->user->checkPermission('saveAssets:' . $volume->uid)
-		 && !Craft::$app->user->checkPermission('saveAssetInVolume:' . $volume->uid)
-		 && !Craft::$app->user->checkPermission('saveAssetInVolume:' . $volume->id))
-			$this->requireAdmin();
-
-		if (!preg_match('/^https?\:\/\/[^\/]*pixabay.com\//', $url))
-			throw new \Error('This is not a Pixabay URL: ' . $url);
-
-		$cacheDir = PixabayPlugin::cachePath();
-
-		$file = preg_replace('/^.*\//', '', $url);
-
-		if (!$file)
-			throw new \Error('Could not get filename from URL: ' . $url);
-
-		if (file_exists($cacheDir . DIRECTORY_SEPARATOR . $file))
-			unlink($cacheDir . DIRECTORY_SEPARATOR . $file);
+		$target = PixabayPlugin::cachePath() . DIRECTORY_SEPARATOR . uniqid('download-') . '-' . $file;
 
 		//Prevent script timeouts
 		set_time_limit(600);
 
-		//Download the file with cUrl
-		$fp = fopen($cacheDir . DIRECTORY_SEPARATOR . $file, 'w+');
-		$ch = curl_init($url);
-		curl_setopt($ch, CURLOPT_TIMEOUT, 600);
-		curl_setopt($ch, CURLOPT_FILE, $fp);
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-		curl_exec($ch);
-		curl_close($ch);
-		fclose($fp);
+		$response = Http::timeout(600)->withOptions(['sink' => $target])->get($url);
 
-		//Save the downloaded file as a new Asset
-		$asset = new Asset();
-		$asset->tempFilePath = $cacheDir . DIRECTORY_SEPARATOR . $file;
-		$asset->filename = $file;
-		$asset->newFolderId = $folder->id;
-		$asset->setVolumeId($volume->id);
-		$asset->uploaderId = Craft::$app->user->id;
-		$asset->avoidFilenameConflicts = true;
-		$asset->setScenario(Asset::SCENARIO_CREATE);
+		if (!$response->successful()) {
+			@unlink($target);
+			abort(502, 'Could not download from Pixabay: ' . $response->status());
+		}
 
-		$success = Craft::$app->elements->saveElement($asset);
-
-		return $this->asJson(['success' => $success, 'assetId' => $asset->id, 'errors' => $asset->getErrors()]);
-
+		return response()->download($target, $file, ['Content-Type' => $response->header('Content-Type') ?: 'application/octet-stream'])
+			->deleteFileAfterSend();
 	}
 }

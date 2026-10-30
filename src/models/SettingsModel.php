@@ -1,9 +1,9 @@
 <?php
 namespace webburospring\pixabay\models;
 
-use craft\base\Model;
+use CraftCms\Cms\Plugin\PluginSettings;
 
-class SettingsModel extends Model
+class SettingsModel extends PluginSettings
 {
-	public $apiKey;
+	public ?string $apiKey = null;
 }

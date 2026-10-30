@@ -4,30 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 1.2.0 - 2022-10-06
+## 2.0.0-alpha
 ### Added
-- Added support for Craft 4
+- Added support for Craft 6 (no Yii2 adapter needed)
 
-## 1.1.1 - 2022-05-19
+### Changed
+- The "Search Pixabay" button is now shown next to the "Upload files" button of asset selector modals
+- Selected pictures are uploaded through Craft's own upload, so permissions, filename conflicts and selection work like any other upload
+- The settings page now uses Craft's settings form
+
 ### Fixed
-- Fixed filtering by image type when changing pages
-
-## 1.1.0 - 2022-05-19
-### Added
-- Added support for filtering by image type
-
-## 1.0.3 - 2021-09-06
-### Fixed
-- Fixed checks for CP template mode (in addition to CP requests)
-
-## 1.0.2 - 2020-10-14
-### Fixed
-- Fixed support for uploading assets to subfolders
-
-## 1.0.1 - 2020-10-07
-### Fixed
-- Hotfix release: plugin assets were not always loading correctly
-
-## 1.0.0 - 2020-09-30
-### Added
-- Initial release
+- Search cache file names no longer break on queries that contain slashes
+- Downloads are only allowed from pixabay.com and its subdomains
