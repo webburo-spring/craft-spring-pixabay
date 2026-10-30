@@ -67,6 +67,56 @@ class PixabayController
 	}
 
 
+	private function _getHit($id, $url) {
+		//Get the search result for a Pixabay ID: from the cached search results (the picture was just found by searching), or else from the Pixabay API
+
+		$id = (int)$id;
+		if ($id <= 0)
+			return null;
+
+		$cacheDir = PixabayPlugin::cachePath();
+
+		foreach (scandir($cacheDir) as $file) {
+			if (!str_ends_with($file, '.json') || str_starts_with($file, 'meta-'))
+				continue;
+
+			$data = @json_decode(file_get_contents($cacheDir . DIRECTORY_SEPARATOR . $file), true);
+
+			//Image URLs are signed per request, so the same picture can have other URLs in other searches
+			foreach ($data['hits'] ?? [] as $hit) {
+				if (($hit['id'] ?? null) == $id && $this->_hitMatchesUrl($hit, $url))
+					return $hit;
+			}
+		}
+
+		$data = $this->_getCache('id:' . $id, 1, '');
+
+		if (!$data) {
+			try {
+				$data = Http::timeout(30)->get('https://pixabay.com/api/', [
+					'key' => PixabayPlugin::apiKey(),
+					'id' => $id,
+				])->json();
+			} catch (\Throwable $e) {
+				$data = null;
+			}
+
+			if (isset($data['hits']))
+				$this->_saveCache('id:' . $id, 1, '', $data);
+		}
+
+		//Since the image URLs are signed per request, this can't be checked against the downloaded URL
+		return $data['hits'][0] ?? null;
+	}
+
+
+	private function _hitMatchesUrl($hit, $url) {
+		//Check that the downloaded URL belongs to this search result
+
+		return \in_array($url, [$hit['vectorURL'] ?? null, $hit['imageURL'] ?? null, $hit['largeImageURL'] ?? null], true);
+	}
+
+
 	public function search(Request $request): JsonResponse {
 		//Search Pixabay
 
@@ -85,7 +135,7 @@ class PixabayController
 
 		try {
 			$pixabayData = Http::timeout(30)->get('https://pixabay.com/api/', [
-				'key' => PixabayPlugin::$plugin->getSettings()->apiKey,
+				'key' => PixabayPlugin::apiKey(),
 				'q' => $query,
 				'page' => $page,
 				'image_type' => $type,
@@ -134,6 +184,16 @@ class PixabayController
 			@unlink($target);
 			abort(502, 'Could not download from Pixabay: ' . $response->status());
 		}
+
+		//Remember the metadata of this picture, so it can be added to the asset when the browser uploads the file (see PixabayPlugin::_applyMetadata())
+		$hit = $this->_getHit($request->query('id'), $url);
+		if ($hit)
+			file_put_contents(PixabayPlugin::metadataFile(hash_file('sha256', $target)), json_encode([
+				'id' => $hit['id'],
+				'user' => $hit['user'] ?? null,
+				'userUrl' => isset($hit['user'], $hit['user_id']) ? 'https://pixabay.com/users/' . rawurlencode($hit['user']) . '-' . $hit['user_id'] . '/' : null,
+				'pageUrl' => $hit['pageURL'] ?? null,
+			]));
 
 		return response()->download($target, $file, ['Content-Type' => $response->header('Content-Type') ?: 'application/octet-stream'])
 			->deleteFileAfterSend();

@@ -24,6 +24,7 @@
 		var $pixabayModal = $(PixabayModal);
 		var pixabayModal = $pixabayModal[0];
 		var selectedImages = [];
+		var imageIds = {}; //Pixabay ID per image URL, so the server can store the image's metadata
 		var requestId;
 		var downloadController = null;
 
@@ -91,6 +92,7 @@
 						var pic = result.data.hits[i];
 						var url = pic.vectorURL || pic.imageURL || pic.largeImageURL;
 						var selected = selectedImages.indexOf(url) > -1;
+						imageIds[url] = pic.id;
 
 						html += '<button type="button" class="pixabay-item' + (selected ? ' selected' : '') + '" aria-pressed="' + selected + '" style="background-image: url(' + Craft.escapeHtml(pic.previewURL) + ');" data-image="' + Craft.escapeHtml(url) + '" title="' + Craft.escapeHtml(pic.tags) + '" aria-label="' + Craft.escapeHtml(pic.tags) + '"></button>';
 					}
@@ -181,7 +183,7 @@
 
 				var url = urls[n];
 
-				fetch(actionUrl(PixabayDownloadUrl, { url: url }), { signal: signal })
+				fetch(actionUrl(PixabayDownloadUrl, { url: url, id: imageIds[url] || '' }), { signal: signal })
 					.then(function (response) {
 						if (!response.ok)
 							throw new Error(response.status + ' ' + response.statusText);
