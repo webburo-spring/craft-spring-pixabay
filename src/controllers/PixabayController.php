@@ -14,7 +14,17 @@ class PixabayController extends Controller
 		//Build API URL
 
 		$apiKey = PixabayPlugin::$plugin->settings->apiKey;
-		return 'https://pixabay.com/api/?key=' . urlencode($apiKey) . '&q=' . urlencode($query) . '&page=' . ((int)$page) . '&image_type=' . ((string)$type) . '&per_page=20';
+		return 'https://pixabay.com/api/?key=' . urlencode($apiKey) . '&q=' . urlencode($query) . '&page=' . ((int)$page) . '&image_type=' . ((string)$type) . '&lang=' . $this->_language() . '&per_page=20';
+	}
+
+
+	private function _language() {
+		//Search in the CP user's language if Pixabay supports it (https://pixabay.com/api/docs/ ), otherwise in English
+
+		$supported = ['cs', 'da', 'de', 'en', 'es', 'fr', 'id', 'it', 'hu', 'nl', 'no', 'pl', 'pt', 'ro', 'sk', 'fi', 'sv', 'tr', 'vi', 'th', 'bg', 'ru', 'el', 'ja', 'ko', 'zh'];
+		$language = strtolower(substr((string)Craft::$app->language, 0, 2));
+
+		return in_array($language, $supported) ? $language : 'en';
 	}
 
 
@@ -35,7 +45,7 @@ class PixabayController extends Controller
 				unlink($cacheDir . DIRECTORY_SEPARATOR . $file);
 		}
 
-		$cacheFile = $cacheDir . DIRECTORY_SEPARATOR . base64_encode(strtolower(trim($query))) . ((int)$page) . ((string)$type) . '.json';
+		$cacheFile = $cacheDir . DIRECTORY_SEPARATOR . md5(strtolower(trim($query))) . ((int)$page) . preg_replace('/[^a-z]/', '', (string)$type) . $this->_language() . '.json';
 
 		if (!file_exists($cacheFile))
 			return null;
@@ -53,7 +63,7 @@ class PixabayController extends Controller
 		$data['_cached'] = (new \DateTime())->format('c');
 
 		$cacheDir = PixabayPlugin::cachePath();
-		$cacheFile = $cacheDir . DIRECTORY_SEPARATOR . base64_encode(strtolower(trim($query))) . ((int)$page) . ((string)$type) . '.json';
+		$cacheFile = $cacheDir . DIRECTORY_SEPARATOR . md5(strtolower(trim($query))) . ((int)$page) . preg_replace('/[^a-z]/', '', (string)$type) . $this->_language() . '.json';
 
 		file_put_contents($cacheFile, json_encode($data));
 	}
@@ -78,7 +88,19 @@ class PixabayController extends Controller
 
 		$url = $this->_searchUrl($query, $page, $type);
 
-		$pixabayData = @json_decode(@file_get_contents($url), true);
+		//Use Guzzle (cURL) instead of file_get_contents: cURL quickly falls back to IPv4 when IPv6 is unreachable (e.g. in Docker / DDEV),
+		//while file_get_contents waits for default_socket_timeout (60s) on every IPv6 address first
+		try {
+			$response = Craft::createGuzzleClient(['connect_timeout' => 10, 'timeout' => 30])->get($url, ['http_errors' => false]);
+			$pixabayData = @json_decode((string)$response->getBody(), true);
+		} catch (\Throwable $e) {
+			Craft::error('Pixabay search failed: ' . $e->getMessage(), __METHOD__);
+			$pixabayData = null;
+		}
+
+		if (!is_array($pixabayData))
+			$pixabayData = [];
+
 		$pixabayData['_query'] = $query;
 		$pixabayData['_page'] = $page;
 		$pixabayData['_type'] = $type;
@@ -106,9 +128,9 @@ class PixabayController extends Controller
 			//Find the upload target
 			//Depending on Craft version and setup, this can be folderId:X, folderId:XXXX-YYYY-ZZZ, volumeId:XXXX-YYYY-ZZZ, or even volumeId:XXXX-YYYY-ZZZ/folderId:XXXX-YYYY-ZZZ
 			$t = explode(':', $t);
-			if ($t[0] == 'volume' || $t == 'volumeId')
+			if ($t[0] == 'volume' || $t[0] == 'volumeId')
 				$volumeId = $t[1] ?? null;
-			if ($t[0] == 'folder' || $t == 'folderId')
+			if ($t[0] == 'folder' || $t[0] == 'folderId')
 				$folderId = $t[1] ?? null;
 		}
 

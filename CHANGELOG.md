@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## Unreleased
+### Changed
+- Searches now use the control panel user's language, if Pixabay supports it
+
+### Fixed
+- Fixed searches taking minutes in environments without IPv6 connectivity, such as Docker / DDEV ([#18](https://github.com/webburo-spring/craft-spring-pixabay/issues/18))
+- Fixed caching search results for queries whose base64 encoding contains a slash
+- Fixed error message being replaced by "No results" when a search fails
+- Fixed `folderId:` / `volumeId:` upload targets not being recognised
+
 ## 1.2.0 - 2022-10-06
 ### Added
 - Added support for Craft 4
