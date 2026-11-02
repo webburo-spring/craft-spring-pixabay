@@ -187,13 +187,18 @@ class PixabayController
 
 		//Remember the metadata of this picture, so it can be added to the asset when the browser uploads the file (see PixabayPlugin::_applyMetadata())
 		$hit = $this->_getHit($request->query('id'), $url);
-		if ($hit)
+		if ($hit) {
+			//Pictures of deleted accounts have the user ID as username (and no profile page), so there's no author to credit
+			$user = (string)($hit['user'] ?? '');
+			$hasAuthor = $user !== '' && isset($hit['user_id']) && $user !== (string)$hit['user_id'];
+
 			file_put_contents(PixabayPlugin::metadataFile(hash_file('sha256', $target)), json_encode([
 				'id' => $hit['id'],
-				'user' => $hit['user'] ?? null,
-				'userUrl' => isset($hit['user'], $hit['user_id']) ? 'https://pixabay.com/users/' . rawurlencode($hit['user']) . '-' . $hit['user_id'] . '/' : null,
+				'user' => $hasAuthor ? $user : null,
+				'userUrl' => $hasAuthor ? 'https://pixabay.com/users/' . rawurlencode($user) . '-' . $hit['user_id'] . '/' : null,
 				'pageUrl' => $hit['pageURL'] ?? null,
 			]));
+		}
 
 		return response()->download($target, $file, ['Content-Type' => $response->header('Content-Type') ?: 'application/octet-stream'])
 			->deleteFileAfterSend();
