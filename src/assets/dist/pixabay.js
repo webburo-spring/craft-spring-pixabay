@@ -71,8 +71,9 @@
 
 											if (!result || !result.success) {
 												//No success or unexpected result
-												$pixabayModal.find('.pixabay-results').html('<p class="error">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'An error occured while loading Pixabay data') + '</p>'));
+												$pixabayModal.find('.pixabay-results').html('<p class="error">' + Craft.escapeHtml(Craft.t('spring-pixabay', 'An error occured while loading Pixabay data')) + '</p>');
 												console.error('[PIXABAY]', result);
+												return;
 											}
 
 											if (!result.data || !result.data.hits || !result.data.hits.length) {
