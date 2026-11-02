@@ -8,17 +8,38 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 use webburospring\pixabay\PixabayPlugin;
 
+use function CraftCms\Cms\currentUser;
+
 class PixabayController
 {
 
-	private function _cacheFile($query, $page, $type) {
-		//Cache file for these search parameters (md5, since base64 can contain slashes)
+	//Languages supported by the Pixabay API (https://pixabay.com/api/docs/ )
+	private const LANGUAGES = ['cs', 'da', 'de', 'en', 'es', 'fr', 'id', 'it', 'hu', 'nl', 'no', 'pl', 'pt', 'ro', 'sk', 'fi', 'sv', 'tr', 'vi', 'th', 'bg', 'ru', 'el', 'ja', 'ko', 'zh'];
 
-		return PixabayPlugin::cachePath() . DIRECTORY_SEPARATOR . md5(strtolower(trim($query)) . '|' . ((int)$page) . '|' . ((string)$type)) . '.json';
+
+	private function _language() {
+		//Search in the language of the CP user if Pixabay supports it, else in English
+		//(the action URL isn't a CP URL, so the app locale can be the site language instead)
+
+		$language = currentUser()?->getPreferredLanguage() ?? app()->getLocale();
+		$language = strtolower(explode('-', str_replace('_', '-', (string)$language))[0]);
+
+		//Norwegian Bokmål and Nynorsk
+		if ($language == 'nb' || $language == 'nn')
+			$language = 'no';
+
+		return \in_array($language, self::LANGUAGES, true) ? $language : 'en';
 	}
 
 
-	private function _getCache($query, $page, $type) {
+	private function _cacheFile($query, $page, $type, $lang = '') {
+		//Cache file for these search parameters (md5, since base64 can contain slashes)
+
+		return PixabayPlugin::cachePath() . DIRECTORY_SEPARATOR . md5(strtolower(trim($query)) . '|' . ((int)$page) . '|' . ((string)$type) . '|' . ((string)$lang)) . '.json';
+	}
+
+
+	private function _getCache($query, $page, $type, $lang = '') {
 		//Get cached results (required by Pixabay: https://pixabay.com/api/docs/ )
 
 		$cacheDir = PixabayPlugin::cachePath();
@@ -35,7 +56,7 @@ class PixabayController
 				unlink($cacheDir . DIRECTORY_SEPARATOR . $file);
 		}
 
-		$cacheFile = $this->_cacheFile($query, $page, $type);
+		$cacheFile = $this->_cacheFile($query, $page, $type, $lang);
 
 		if (!file_exists($cacheFile))
 			return null;
@@ -44,7 +65,7 @@ class PixabayController
 	}
 
 
-	private function _saveCache($query, $page, $type, $data) {
+	private function _saveCache($query, $page, $type, $data, $lang = '') {
 		//Save results to cache
 
 		if (!\is_array($data))
@@ -52,7 +73,7 @@ class PixabayController
 
 		$data['_cached'] = (new \DateTime())->format('c');
 
-		file_put_contents($this->_cacheFile($query, $page, $type), json_encode($data));
+		file_put_contents($this->_cacheFile($query, $page, $type, $lang), json_encode($data));
 	}
 
 
@@ -128,8 +149,10 @@ class PixabayController
 		if (!\in_array($type, ['', 'all', 'photo', 'illustration', 'vector'], true))
 			$type = '';
 
-		//Try to see if we have this query cached
-		$cachedData = $this->_getCache($query, $page, $type);
+		$lang = $this->_language();
+
+		//Try to see if we have this query cached (per language, since the same words give other results in other languages)
+		$cachedData = $this->_getCache($query, $page, $type, $lang);
 		if ($cachedData)
 			return new JsonResponse(['success' => true, 'data' => $cachedData]);
 
@@ -137,6 +160,7 @@ class PixabayController
 			$pixabayData = Http::timeout(30)->get('https://pixabay.com/api/', [
 				'key' => PixabayPlugin::apiKey(),
 				'q' => $query,
+				'lang' => $lang,
 				'page' => $page,
 				'image_type' => $type,
 				'per_page' => 20,
@@ -155,7 +179,7 @@ class PixabayController
 		$success = isset($pixabayData['hits']);
 
 		if ($success)
-			$this->_saveCache($query, $page, $type, $pixabayData);
+			$this->_saveCache($query, $page, $type, $pixabayData, $lang);
 
 		return new JsonResponse(['success' => $success, 'data' => $pixabayData]);
 	}
