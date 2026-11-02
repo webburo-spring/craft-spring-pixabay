@@ -90,7 +90,50 @@ class PixabayPlugin extends Plugin
 	protected function settingsHtml(): string {
 		//Plugin settings page template
 		
-		return Craft::$app->view->renderTemplate('spring-pixabay/_settings', ['settings' => $this->settings]);
+		return Craft::$app->view->renderTemplate('spring-pixabay/_settings', ['settings' => $this->settings, 'fieldOptions' => self::fieldOptions()]);
+	}
+
+
+	public static function fieldOptions() {
+		//Fields the metadata can be saved to (the field also needs to be in the field layout of the volume)
+		//Fields in the volume field layouts first, since they can have a different handle there (Craft 5)
+
+		$fields = [];
+		foreach (Craft::$app->volumes->getAllVolumes() as $volume) {
+			$layout = $volume->getFieldLayout();
+			if ($layout)
+				$fields = array_merge($fields, self::layoutFields($layout));
+		}
+
+		$fields = array_merge($fields, Craft::$app->fields->getAllFields());
+
+		//Plain Text and URL fields (Craft 3 and 4), or Link fields (Craft 5, where Url is an alias of Link)
+		$classes = array_filter(['craft\fields\PlainText', 'craft\fields\Url', 'craft\fields\Link'], 'class_exists');
+
+		$options = [['label' => Craft::t('spring-pixabay', 'None'), 'value' => '']];
+		$handles = [];
+
+		foreach ($fields as $field) {
+			if (in_array($field->handle, $handles, true))
+				continue;
+
+			foreach ($classes as $class) {
+				if ($field instanceof $class) {
+					$handles[] = $field->handle;
+					$options[] = ['label' => $field->name . ' (' . $field->handle . ')', 'value' => $field->handle];
+					break;
+				}
+			}
+		}
+
+		return $options;
+	}
+
+
+	public static function layoutFields($layout) {
+		//Custom fields of a field layout (getFields() in Craft 3, getCustomFields() in Craft 4 and 5)
+
+		return method_exists($layout, 'getCustomFields') ? $layout->getCustomFields() : $layout->getFields();
 	}
 
 

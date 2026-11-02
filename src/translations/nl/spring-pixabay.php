@@ -20,4 +20,11 @@ GitHub repository: [webburo-spring/craft-spring-pixabay](https://github.com/webb
 	'Photos' => 'Foto\'s',
 	'Illustrations' => 'Illustraties',
 	'Vector Graphics' => 'Vectorafbeeldingen',
+	'None' => 'Geen',
+	'Author field' => 'Veld voor auteur',
+	'The asset field to save the Pixabay username of the author to.' => 'Het veld van de afbeelding waarin de Pixabay-gebruikersnaam van de auteur wordt opgeslagen.',
+	'Author URL field' => 'Veld voor URL van auteur',
+	'The asset field to save the URL of the author’s Pixabay profile to.' => 'Het veld van de afbeelding waarin de URL van het Pixabay-profiel van de auteur wordt opgeslagen.',
+	'Pixabay page URL field' => 'Veld voor URL van Pixabay-pagina',
+	'The asset field to save the URL of the picture’s Pixabay page to.' => 'Het veld van de afbeelding waarin de URL van de Pixabay-pagina van de foto wordt opgeslagen.',
 ];

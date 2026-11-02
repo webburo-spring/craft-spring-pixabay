@@ -21,3 +21,30 @@
 	name: 'apiKey',
 	value: settings.apiKey,
 }) }}
+
+{{ forms.selectField({
+	label: 'Author field'|t('spring-pixabay'),
+	instructions: 'The asset field to save the Pixabay username of the author to.'|t('spring-pixabay'),
+	id: 'authorField',
+	name: 'authorField',
+	options: fieldOptions,
+	value: settings.authorField,
+}) }}
+
+{{ forms.selectField({
+	label: 'Author URL field'|t('spring-pixabay'),
+	instructions: 'The asset field to save the URL of the author’s Pixabay profile to.'|t('spring-pixabay'),
+	id: 'authorUrlField',
+	name: 'authorUrlField',
+	options: fieldOptions,
+	value: settings.authorUrlField,
+}) }}
+
+{{ forms.selectField({
+	label: 'Pixabay page URL field'|t('spring-pixabay'),
+	instructions: 'The asset field to save the URL of the picture’s Pixabay page to.'|t('spring-pixabay'),
+	id: 'pageUrlField',
+	name: 'pageUrlField',
+	options: fieldOptions,
+	value: settings.pageUrlField,
+}) }}
