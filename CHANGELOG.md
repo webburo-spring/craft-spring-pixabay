@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
+### Added
+- The author name, author profile URL and Pixabay page URL of downloaded pictures can be saved to asset fields, selected in the plugin settings ([#19](https://github.com/webburo-spring/craft-spring-pixabay/issues/19))
+
 ### Changed
 - Searches now use the control panel user's language, if Pixabay supports it
 

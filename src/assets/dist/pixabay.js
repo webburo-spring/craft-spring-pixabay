@@ -22,6 +22,7 @@
 						var $btn = $(PixabayButton);
 						var pixabayModal;
 						var selectedImages = [];
+						var imageIds = {}; //Pixabay ID per image URL, so the server can save the image's metadata
 						var isDownloading = false;
 
 						//On button click
@@ -88,6 +89,7 @@
 												//Show pictures
 												var pic = result.data.hits[i];
 												var url = pic.vectorURL || pic.imageURL || pic.largeImageURL;
+												imageIds[url] = pic.id;
 
 												html += '<label class="pixabay-item' + (selectedImages.indexOf(url) > -1 ? ' selected' : '') + '" tabindex="0" style="background-image: url(' + Craft.escapeHtml(pic.previewURL) + ');" data-image="' + Craft.escapeHtml(url) + '" title="' + Craft.escapeHtml(pic.tags) + '"></label>';
 											}
@@ -193,7 +195,7 @@
 										return;
 
 									$.ajax(Craft.getActionUrl('spring-pixabay/pixabay/download'), {
-										data: { url: urls[n], target: elementModal.elementIndex.sourceKey },
+										data: { url: urls[n], id: imageIds[urls[n]] || '', target: elementModal.elementIndex.sourceKey },
 										dataType: 'json',
 										success: function (result) {
 

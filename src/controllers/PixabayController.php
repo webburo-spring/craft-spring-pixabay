@@ -69,6 +69,103 @@ class PixabayController extends Controller
 	}
 
 
+	private function _getHit($id, $url) {
+		//Get the search result for a Pixabay ID: from the cached search results (the picture was just found by searching), or else from the Pixabay API
+
+		$id = (int)$id;
+		if ($id <= 0)
+			return null;
+
+		$cacheDir = PixabayPlugin::cachePath();
+
+		foreach (scandir($cacheDir) as $file) {
+			if (substr($file, -5) != '.json')
+				continue;
+
+			$data = @json_decode(file_get_contents($cacheDir . DIRECTORY_SEPARATOR . $file), true);
+
+			//Image URLs are signed per request, so the same picture can have other URLs in other searches
+			foreach ($data['hits'] ?? [] as $hit) {
+				if (($hit['id'] ?? null) == $id && $this->_hitMatchesUrl($hit, $url))
+					return $hit;
+			}
+		}
+
+		$data = $this->_getCache('id:' . $id, 1, '');
+
+		if (!$data) {
+			try {
+				$apiKey = PixabayPlugin::$plugin->settings->apiKey;
+				$response = Craft::createGuzzleClient(['connect_timeout' => 10, 'timeout' => 30])->get('https://pixabay.com/api/?key=' . urlencode($apiKey) . '&id=' . $id, ['http_errors' => false]);
+				$data = @json_decode((string)$response->getBody(), true);
+			} catch (\Throwable $e) {
+				Craft::error('Pixabay metadata lookup failed: ' . $e->getMessage(), __METHOD__);
+				$data = null;
+			}
+
+			if (isset($data['hits']))
+				$this->_saveCache('id:' . $id, 1, '', $data);
+		}
+
+		//Since the image URLs are signed per request, this can't be checked against the downloaded URL
+		return $data['hits'][0] ?? null;
+	}
+
+
+	private function _hitMatchesUrl($hit, $url) {
+		//Check that the downloaded URL belongs to this search result
+
+		return in_array($url, [$hit['vectorURL'] ?? null, $hit['imageURL'] ?? null, $hit['largeImageURL'] ?? null], true);
+	}
+
+
+	private function _metadata($hit) {
+		//Metadata of a picture to save to the asset fields
+
+		//Pictures of deleted accounts have the user ID as username (and no profile page), so there's no author to credit
+		$user = (string)($hit['user'] ?? '');
+		$hasAuthor = $user !== '' && isset($hit['user_id']) && $user !== (string)$hit['user_id'];
+
+		return [
+			'user' => $hasAuthor ? $user : null,
+			'userUrl' => $hasAuthor ? 'https://pixabay.com/users/' . rawurlencode($user) . '-' . $hit['user_id'] . '/' : null,
+			'pageUrl' => $hit['pageURL'] ?? null,
+		];
+	}
+
+
+	private function _applyMetadata(Asset $asset, $id, $url) {
+		//Fill the asset fields selected in the plugin settings with the metadata of this picture
+
+		$settings = PixabayPlugin::$plugin->settings;
+		$fields = array_filter([
+			'user' => $settings->authorField,
+			'userUrl' => $settings->authorUrlField,
+			'pageUrl' => $settings->pageUrlField,
+		]);
+
+		$layout = $asset->getFieldLayout();
+		if (!$fields || !$layout)
+			return;
+
+		$hit = $this->_getHit($id, $url);
+		if (!$hit)
+			return;
+
+		$metadata = $this->_metadata($hit);
+
+		//Only fields in the field layout of the volume can be saved
+		$layoutHandles = array_map(function ($field) {
+			return $field->handle;
+		}, PixabayPlugin::layoutFields($layout));
+
+		foreach ($fields as $key => $handle) {
+			if (!empty($metadata[$key]) && in_array($handle, $layoutHandles, true))
+				$asset->setFieldValue($handle, $metadata[$key]);
+		}
+	}
+
+
 	public function actionSearch() {
 		//Search Pixabay
 
@@ -201,6 +298,8 @@ class PixabayController extends Controller
 		$asset->uploaderId = Craft::$app->user->id;
 		$asset->avoidFilenameConflicts = true;
 		$asset->setScenario(Asset::SCENARIO_CREATE);
+
+		$this->_applyMetadata($asset, Craft::$app->request->getParam('id'), $url);
 
 		$success = Craft::$app->elements->saveElement($asset);
 
