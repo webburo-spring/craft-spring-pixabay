@@ -13,13 +13,13 @@ use webburospring\pixabay\models\SettingsModel;
 use CraftCms\Cms\Asset\Events\AssetFileHandling;
 use CraftCms\Cms\Field\Link;
 use CraftCms\Cms\Field\PlainText;
-use CraftCms\Cms\Form\Form;
-use CraftCms\Cms\Form\FormContext;
-use CraftCms\Cms\Form\Controls\Choice;
-use CraftCms\Cms\Form\Controls\Text;
-use CraftCms\Cms\Form\Nodes\Callout;
-use CraftCms\Cms\Form\Nodes\Field;
-use CraftCms\Cms\Form\Nodes\MarkdownContent;
+use CraftCms\Cms\Ui\Ui;
+use CraftCms\Cms\Ui\UiContext;
+use CraftCms\Cms\Ui\Controls\Choice;
+use CraftCms\Cms\Ui\Controls\Text;
+use CraftCms\Cms\Ui\Nodes\Callout;
+use CraftCms\Cms\Ui\Nodes\Field;
+use CraftCms\Cms\Ui\Nodes\MarkdownContent;
 use CraftCms\Cms\Plugin\Plugin;
 use CraftCms\Cms\Plugin\PluginSettings;
 use CraftCms\Cms\Support\Env;
@@ -168,10 +168,10 @@ class PixabayPlugin extends Plugin
 	}
 
 
-	public function settingsForm(FormContext $context = new FormContext): ?Form {
+	public function settingsUi(UiContext $context = new UiContext): ?Ui {
 		//Plugin settings page
 
-		return Form::make([
+		return Ui::make([
 			MarkdownContent::make('spring-pixabay-description', t('[PLUGINDESCRIPTION]', category: 'spring-pixabay')),
 			...(self::apiKey() ? [] : [
 				Callout::make('spring-pixabay-no-api-key', t('Enter an API key for Pixabay and click "Save" to enable this plugin.', category: 'spring-pixabay'))
